@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bulk Density Report</title>
+<style>
+:root{--bg:#eef0f3;--fg:#1b1f24;--bar:#fff;--bd:#c9ced6;--ac:#1f2a44;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15181d;--fg:#e8eaed;--bar:#1f242b;--bd:#39404a;--ac:#5b7bd6}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bar);border-bottom:1px solid var(--bd);padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.bar h1{font-size:16px;margin:0 auto 0 0}
+button{font:inherit;font-size:14px;padding:8px 12px;border-radius:8px;border:1px solid var(--bd);background:var(--bar);color:var(--fg);cursor:pointer}
+button.p{background:var(--ac);color:#fff;border-color:var(--ac)}
+.st{font-size:12px;opacity:.75}.sr{font:inherit;font-size:14px;padding:7px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--bar);color:var(--fg);min-width:0;flex:1 1 160px}
+.set{display:none;max-width:420px;margin:10px 14px;padding:12px;border:1px solid var(--bd);border-radius:10px;background:var(--bar);font-size:13px}.set.on{display:block}.set label{display:block;margin-top:8px;font-size:12px}.set input{display:block;width:100%;box-sizing:border-box;margin-top:3px;font:inherit;padding:7px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--fg)}.set button{margin-top:10px}
+.hist{max-width:640px}.hi{display:flex;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--bd);font-size:12px}.hi input{width:auto!important;display:inline-block!important;margin:0!important}.hi button{margin:0!important;padding:4px 8px;font-size:12px}
+.note{font-size:12px;opacity:.7;padding:8px 14px}
+#root{transform-origin:top left;padding:12px 0}
+.pw{margin:0 auto 18px;width:794px}
+.page{width:794px;height:1123px;background:#fff;color:#111;box-sizing:border-box;padding:22px;display:flex;flex-direction:column;gap:18px;box-shadow:0 2px 10px rgba(0,0,0,.2)}
+.sheet{flex:1;border:1.5px solid #222;display:flex;flex-direction:column;font-size:11px;position:relative}
+.hd{display:grid;grid-template-columns:150px 1fr;border-bottom:1.5px solid #222}
+.logo{background:#1c1f26;color:#fff;padding:6px 8px;text-align:center}
+.logo b{font-size:30px;letter-spacing:1px;display:block;line-height:1.1}
+.logo small{font-size:8px}
+.ttl{display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px}
+.row{display:grid;border-bottom:1px solid #222}
+.c{border-right:1px solid #222;padding:2px 4px;display:flex;flex-direction:column;justify-content:center;min-width:0}
+.c:last-child{border-right:0}
+.c label{text-align:center;font-weight:600;font-size:10.5px;padding:2px 0}
+.in{width:100%;box-sizing:border-box;border:0;border-top:1px solid #bbb;background:transparent;color:#111;font:inherit;font-size:11px;padding:3px 2px;text-align:center;outline:0;min-height:20px}
+.in:focus{background:#fff8d6}
+.ro{font-weight:600}
+.col{display:grid;grid-template-columns:1fr 1fr}
+.col .in{border-top:1px solid #bbb;border-right:1px solid #bbb}
+.col .in:nth-child(2n){border-right:0}
+.tt{grid-column:1/3;text-align:center;font-weight:600;padding:3px;border-bottom:1px solid #222}
+.hh{text-align:center;font-weight:600;padding:3px;border-bottom:1px solid #222}
+.sm{display:grid;grid-template-columns:1fr 1fr}
+.sm span{padding:3px 4px;font-weight:600;font-size:10.5px;border-top:1px solid #bbb;display:flex;align-items:center}
+.x{position:absolute;right:4px;top:3px;font-size:11px;padding:2px 6px;background:#fff;color:#b00;border-color:#b00}
+.cap .x{display:none}
+.cap .in{border-top-color:#bbb}
+</style>
+</head>
+<body>
+<div class="bar">
+  <h1>Bulk Density Report</h1>
+  <span class="st" id="st">Load ho raha hai...</span>
+  <input id="q" class="sr" type="search" placeholder="Search: location / material / date">
+  <button id="add">+ Report</button>
+  <button id="hbtn">Purani Reports</button>
+  <button id="sync">Sync</button>
+  <button id="gear">GitHub</button>
+  <button id="pdf" class="p">PDF download</button>
+</div>
+<div class="note">Har A4 page par 2 reports. Har badlav 1-2 second me GitHub repo ki JSON file me apne aap save hota hai (<span id="cnt"></span>). PDF wahi reports leta hai jo screen par dikh rahi hain.</div>
+<div class="set" id="set">
+  <b>GitHub settings</b> (sirf is device ke browser me rehti hain)
+  <label>Owner / username<input id="g_o" placeholder="yogender"></label>
+  <label>Repo name<input id="g_r" placeholder="bulk-density"></label>
+  <label>Branch<input id="g_b" placeholder="main"></label>
+  <label>Data file path<input id="g_p" placeholder="data/bulk-density.json"></label>
+  <label>Token (Contents: Read and write)<input id="g_t" type="password" placeholder="github_pat_..."></label>
+  <button id="gsave" class="p">Save karke connect karein</button>
+</div>
+<div class="set hist" id="hist">
+  <b>Purani reports (saved data se PDF)</b>
+  <input id="h_q" placeholder="Search: location / material / date">
+  <label>Se tareekh<input id="h_f" type="date"></label>
+  <label>Tak tareekh<input id="h_t" type="date"></label>
+  <div style="display:flex;gap:8px;flex-wrap:wrap"><button id="h_all">Sab select / unselect</button><button id="h_pdf" class="p">Selected ka PDF</button></div>
+  <div id="h_list" style="margin-top:8px"></div>
+</div>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+var N=5,KEY="bd_local_v2",CK="bd_gh",TITLES=["Free Flow Test","Semi Compact","Compact"];
+function today(){var d=new Date();return ("0"+d.getDate()).slice(-2)+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+d.getFullYear();}
+function nowT(){return new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"}).toUpperCase();}
+function blank(){var s=[];for(var c=0;c<3;c++){var a=[];for(var i=0;i<N;i++)a.push({i:"",w:""});s.push(a);}
+  return {id:"r"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),t:Date.now(),u:0,loc:"",date:today(),time:nowT(),mat:"",ckg:"",cm3:"",sig:"",s:s};}
+var R=[],V=[],DEL=[],Q="",SHA=null,busy=false,again=false,timer=null;
+function setSt(t,bad){var e=document.getElementById("st");e.textContent=t;e.style.color=bad?"#d33":"";}
+function hasData(r){return !!(r.loc||r.mat||r.ckg||r.cm3||r.sig||r.s.some(function(c){return c.some(function(x){return x.i||x.w;});}));}
+function localSave(){try{localStorage.setItem(KEY,JSON.stringify({R:R,DEL:DEL}));}catch(e){}}
+function localLoad(){try{var o=JSON.parse(localStorage.getItem(KEY)||"{}");R=o.R||[];DEL=o.DEL||[];}catch(e){R=[];DEL=[];}}
+/* ---- GitHub ---- */
+function cfgDefault(){var c={o:"",r:"",b:"main",p:"data/bulk-density.json",t:""};
+  var h=location.hostname;if(/\.github\.io$/.test(h)){c.o=h.split(".")[0];c.r=location.pathname.split("/")[1]||"";}return c;}
+function cfgLoad(){var c=cfgDefault();try{var s=JSON.parse(localStorage.getItem(CK)||"{}");for(var k in s)if(s[k])c[k]=s[k];}catch(e){}return c;}
+var CFG=cfgLoad();
+function ready(){return CFG.o&&CFG.r&&CFG.t;}
+function enc(s){var b=new TextEncoder().encode(s),x="";b.forEach(function(c){x+=String.fromCharCode(c);});return btoa(x);}
+function dec(b){var x=atob(b.replace(/\s/g,"")),a=new Uint8Array(x.length);for(var i=0;i<x.length;i++)a[i]=x.charCodeAt(i);return new TextDecoder().decode(a);}
+function url(get){return "https://api.github.com/repos/"+CFG.o+"/"+CFG.r+"/contents/"+CFG.p.split("/").map(encodeURIComponent).join("/")+(get?"?ref="+encodeURIComponent(CFG.b)+"&_="+Date.now():"");}
+function hdr(){return {"Authorization":"Bearer "+CFG.t,"Accept":"application/vnd.github+json"};}
+async function pull(){
+  var res=await fetch(url(true),{headers:hdr()});
+  if(res.status===404){SHA=null;return {reports:[],deleted:[]};}
+  if(res.status===401||res.status===403)throw new Error("Token galat ya permission nahi (Contents: Read and write chahiye)");
+  if(!res.ok)throw new Error("GitHub error "+res.status);
+  var j=await res.json();SHA=j.sha;
+  var txt=j.content?dec(j.content):"{}";
+  try{var d=JSON.parse(txt);return {reports:d.reports||[],deleted:d.deleted||[]};}catch(e){return {reports:[],deleted:[]};}
+}
+function merge(rem){
+  var changed=false;
+  rem.deleted.forEach(function(id){if(DEL.indexOf(id)<0)DEL.push(id);});
+  R=R.filter(function(r){return DEL.indexOf(r.id)<0;});
+  rem.reports.forEach(function(x){
+    if(DEL.indexOf(x.id)>-1)return;
+    var i=R.findIndex(function(r){return r.id===x.id;});
+    if(i<0){R.push(x);changed=true;}
+    else if((x.u||0)>(R[i].u||0)){R[i]=x;changed=true;}
+  });
+  R.sort(function(a,b){return (a.t||0)-(b.t||0);});
+  return changed;
+}
+async function doPush(){
+  for(var a=0;a<3;a++){
+    var rem=await pull();
+    if(merge(rem)&&!(document.activeElement&&document.activeElement.classList.contains("in")))render();
+    var body={message:"Bulk density data update "+new Date().toISOString(),content:enc(JSON.stringify({v:1,reports:R.filter(hasData),deleted:DEL},null,1)),branch:CFG.b};
+    if(SHA)body.sha=SHA;
+    var res=await fetch(url(false),{method:"PUT",headers:hdr(),body:JSON.stringify(body)});
+    if(res.ok){var j=await res.json();SHA=j.content.sha;return;}
+    if(res.status===409||res.status===422)continue;
+    if(res.status===401||res.status===403)throw new Error("Token galat ya write permission nahi");
+    throw new Error("GitHub error "+res.status);
+  }
+  throw new Error("Conflict, dobara try hoga");
+}
+async function sync(){
+  if(!ready()){setSt("GitHub settings bharein",true);return;}
+  if(busy){again=true;return;}
+  busy=true;setSt("GitHub par save ho raha hai...");
+  try{do{again=false;await doPush();}while(again);localSave();setSt("GitHub par saved \u2713 "+new Date().toLocaleTimeString());}
+  catch(e){setSt("Save nahi hua: "+e.message,true);}
+  busy=false;
+}
+function queue(){localSave();if(!ready()){setSt("GitHub settings bharein",true);return;}setSt("Save hone wala hai...");clearTimeout(timer);timer=setTimeout(sync,1500);}
+/* ---- UI ---- */
+function get(o,p){return p.split(".").reduce(function(a,k){return a[k];},o);}
+function set(o,p,v){var k=p.split("."),l=k.pop();k.reduce(function(a,x){return a[x];},o)[l]=v;}
+function inp(p){return '<input class="in" data-p="'+p+'">';}
+function out(o){return '<input class="in ro" data-o="'+o+'" readonly>';}
+function cell(l,body){return '<div class="c"><label>'+l+'</label>'+body+'</div>';}
+function sheet(r){
+  var h='<div class="sheet" data-r="'+r+'"><button class="x" data-del="'+r+'">Hatayein</button>';
+  h+='<div class="hd"><div class="logo"><b>SV</b><small>stockpilevolume.com</small></div><div class="ttl">Bulk Density by DatesMetron LLP</div></div>';
+  h+='<div class="row" style="grid-template-columns:62% 21% 17%">'+cell("Location",inp("loc"))+cell("Date",inp("date"))+cell("Time",inp("time"))+'</div>';
+  h+='<div class="row" style="grid-template-columns:30% 70%">'+cell("Material Name","")+'<div class="c">'+inp("mat")+'</div></div>';
+  h+='<div class="row" style="grid-template-columns:1fr 1fr 1fr">';
+  for(var c=0;c<3;c++){
+    h+='<div class="c" style="padding:0"><div class="tt">'+TITLES[c]+'</div><div class="col"><div class="hh">Sample id</div><div class="hh">Weight(Kg)</div>';
+    for(var i=0;i<N;i++)h+=inp("s."+c+"."+i+".i")+inp("s."+c+"."+i+".w");
+    h+='</div><div class="sm"><span>Avg. Weight(Kg)</span>'+out("avg"+c)+'<span>Net Weight(Kg)</span>'+out("net"+c)+'</div></div>';
+  }
+  h+='</div>';
+  h+='<div class="row" style="grid-template-columns:1fr 1fr 1fr">'+cell("Avg. Net Weight(Kg)",out("anet"))+cell("Avg. Net Weight(Tonne)",out("tonne"))+cell("Density(T/m3)",out("den"))+'</div>';
+  h+='<div class="row" style="grid-template-columns:1fr 1fr 1fr;border-bottom:0;flex:1">'+cell("Weight of Container(Kg)",inp("ckg"))+cell("Weight of Container(m3)",inp("cm3"))+cell("Site Incharge Signature",inp("sig"))+'</div>';
+  return h+'</div>';
+}
+function render(){
+  var q=Q.trim().toLowerCase();
+  V=[];R.forEach(function(r,i){if(!q||(r.loc+" "+r.mat+" "+r.date+" "+r.sig).toLowerCase().indexOf(q)>-1)V.push(i);});
+  var h="";
+  for(var p=0;p<V.length;p+=2){
+    h+='<div class="pw"><div class="page">'+sheet(V[p])+(V[p+1]!=null?sheet(V[p+1]):'<div class="sheet" style="border:0"></div>')+'</div></div>';
+  }
+  if(!V.length)h='<div class="note">Koi report nahi mili.</div>';
+  document.getElementById("root").innerHTML=h;
+  document.querySelectorAll(".sheet[data-r]").forEach(function(s){
+    var r=+s.dataset.r;
+    s.querySelectorAll("[data-p]").forEach(function(el){el.value=get(R[r],el.dataset.p);});
+    calc(r);
+  });
+  document.getElementById("cnt").textContent=V.length+" / "+R.length+" report";
+  fit();
+}
+function f(n,d){return (n==null||isNaN(n))?"":(+n.toFixed(d)).toString();}
+function compute(d){
+  var ck=parseFloat(d.ckg),vol=parseFloat(d.cm3),nets=[],avg=[],net=[];
+  for(var c=0;c<3;c++){
+    var ws=d.s[c].map(function(x){return parseFloat(x.w);}).filter(function(x){return !isNaN(x);});
+    var a=ws.length?ws.reduce(function(x,y){return x+y;},0)/ws.length:null;
+    var n=(a!=null&&!isNaN(ck))?a-ck:null;
+    if(n!=null)nets.push(n);avg.push(a);net.push(n);
+  }
+  var an=nets.length?nets.reduce(function(x,y){return x+y;},0)/nets.length:null;
+  var t=an!=null?an/1000:null;
+  return {avg:avg,net:net,an:an,t:t,den:(t!=null&&vol>0)?t/vol:null};
+}
+function calc(r,s){
+  s=s||document.querySelector('.sheet[data-r="'+r+'"]');if(!s)return;
+  var o=compute(R[r]);
+  for(var c=0;c<3;c++){s.querySelector('[data-o="avg'+c+'"]').value=f(o.avg[c],3);s.querySelector('[data-o="net'+c+'"]').value=f(o.net[c],3);}
+  s.querySelector('[data-o="anet"]').value=f(o.an,3);
+  s.querySelector('[data-o="tonne"]').value=f(o.t,4);
+  s.querySelector('[data-o="den"]').value=f(o.den,4);
+}
+document.addEventListener("input",function(e){
+  var el=e.target,s=el.closest&&el.closest(".sheet[data-r]");
+  if(!s||!el.dataset.p)return;
+  var r=+s.dataset.r,d=R[r];
+  if(!hasData(d)&&el.dataset.p!=="date"&&el.dataset.p!=="time"){
+    d.date=today();d.time=nowT();
+    s.querySelector('[data-p="date"]').value=d.date;s.querySelector('[data-p="time"]').value=d.time;
+  }
+  set(d,el.dataset.p,el.value);d.u=Date.now();calc(r);queue();
+});
+document.addEventListener("click",function(e){
+  var d=e.target.dataset&&e.target.dataset.del;
+  if(d!=null&&d!==""){
+    if(!confirm("Ye report GitHub se bhi hamesha ke liye hategi. Pakka?"))return;
+    var r=R.splice(+d,1)[0];DEL.push(r.id);render();queue();
+  }
+});
+document.getElementById("q").addEventListener("input",function(){Q=this.value;render();});
+document.getElementById("add").onclick=function(){R.push(blank());Q="";document.getElementById("q").value="";localSave();render();window.scrollTo(0,document.body.scrollHeight);};
+document.getElementById("sync").onclick=function(){sync();};
+function fit(){document.getElementById("root").style.zoom=Math.min(1,(window.innerWidth-16)/794);}
+window.addEventListener("resize",fit);
+async function makePdf(pages,name,btn){
+  var old=btn?btn.textContent:"";if(btn){btn.textContent="Ban raha hai...";btn.disabled=true;}
+  var root=document.getElementById("root");
+  try{
+    if(!pages.length)throw new Error("Koi report nahi hai");
+    root.style.zoom=1;document.body.classList.add("cap");
+    var pdf=new window.jspdf.jsPDF({unit:"mm",format:"a4"});
+    for(var i=0;i<pages.length;i++){
+      var cv=await html2canvas(pages[i],{scale:2,backgroundColor:"#ffffff"});
+      if(i)pdf.addPage();
+      pdf.addImage(cv.toDataURL("image/jpeg",0.95),"JPEG",0,0,210,297);
+    }
+    pdf.save(name);
+  }catch(err){alert("PDF nahi ban paaya: "+err.message);}
+  document.body.classList.remove("cap");fit();if(btn){btn.textContent=old;btn.disabled=false;}
+}
+document.getElementById("pdf").onclick=function(){makePdf(document.querySelectorAll("#root .page"),"Bulk-Density-Report-"+today()+".pdf",this);};
+async function pdfFor(idxs,name,btn){
+  var tmp=document.createElement("div");tmp.style.cssText="position:absolute;left:-10000px;top:0;width:794px";
+  var h="";
+  for(var p=0;p<idxs.length;p+=2)h+='<div class="pw"><div class="page">'+sheet(idxs[p])+(idxs[p+1]!=null?sheet(idxs[p+1]):'<div class="sheet" style="border:0"></div>')+'</div></div>';
+  tmp.innerHTML=h;document.body.appendChild(tmp);
+  tmp.querySelectorAll(".sheet[data-r]").forEach(function(s){
+    var r=+s.dataset.r;
+    s.querySelectorAll("[data-p]").forEach(function(el){el.value=get(R[r],el.dataset.p);});
+    calc(r,s);
+  });
+  await makePdf(tmp.querySelectorAll(".page"),name,btn);
+  tmp.remove();
+}
+/* purani reports */
+var HS={};
+function iso(d){var m=/^(\d{1,2})-(\d{1,2})-(\d{4})$/.exec(d||"");return m?m[3]+"-"+("0"+m[2]).slice(-2)+"-"+("0"+m[1]).slice(-2):"";}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function hlist(){
+  var q=document.getElementById("h_q").value.trim().toLowerCase(),fr=document.getElementById("h_f").value,to=document.getElementById("h_t").value,o=[];
+  R.forEach(function(r,i){
+    if(!hasData(r))return;
+    if(q&&(r.loc+" "+r.mat+" "+r.date+" "+r.sig).toLowerCase().indexOf(q)<0)return;
+    var d=iso(r.date);if(d&&((fr&&d<fr)||(to&&d>to)))return;
+    o.push(i);
+  });
+  return o.sort(function(a,b){return (R[b].t||0)-(R[a].t||0);});
+}
+function hrender(){
+  var L=hlist(),h="";
+  L.forEach(function(i){
+    var r=R[i],dn=compute(r).den;
+    h+='<div class="hi"><input type="checkbox" data-hs="'+i+'"'+(HS[r.id]?" checked":"")+'><span style="flex:1">'+esc(r.date)+" "+esc(r.time)+" \u00b7 "+esc(r.loc||"-")+" \u00b7 "+esc(r.mat||"-")+(dn!=null?" \u00b7 D="+f(dn,3):"")+'</span><button data-hp="'+i+'">PDF</button></div>';
+  });
+  document.getElementById("h_list").innerHTML=h||"Koi purani report nahi mili.";
+}
+document.getElementById("hbtn").onclick=function(){var e=document.getElementById("hist");e.classList.toggle("on");if(e.classList.contains("on"))hrender();};
+["h_q","h_f","h_t"].forEach(function(id){document.getElementById(id).addEventListener("input",hrender);});
+document.getElementById("h_list").addEventListener("click",function(e){
+  var t=e.target;
+  if(t.dataset.hs!=null&&t.dataset.hs!==""){HS[R[+t.dataset.hs].id]=t.checked;}
+  if(t.dataset.hp!=null&&t.dataset.hp!==""){var r=R[+t.dataset.hp];pdfFor([+t.dataset.hp],"Bulk-Density-"+(r.loc||"report").replace(/[^\w-]+/g,"_")+"-"+r.date+".pdf",t);}
+});
+document.getElementById("h_all").onclick=function(){
+  var L=hlist(),all=L.every(function(i){return HS[R[i].id];});
+  L.forEach(function(i){HS[R[i].id]=!all;});hrender();
+};
+document.getElementById("h_pdf").onclick=function(){
+  var L=hlist().filter(function(i){return HS[R[i].id];}).sort(function(a,b){return (R[a].t||0)-(R[b].t||0);});
+  if(!L.length){alert("Pehle reports select karein");return;}
+  pdfFor(L,"Bulk-Density-Purani-Reports-"+today()+".pdf",this);
+};
+/* settings */
+var SP=document.getElementById("set");
+function fillSet(){["o","r","b","p","t"].forEach(function(k){document.getElementById("g_"+k).value=CFG[k]||"";});}
+document.getElementById("gear").onclick=function(){fillSet();SP.classList.toggle("on");};
+document.getElementById("gsave").onclick=function(){
+  var c={};["o","r","b","p","t"].forEach(function(k){c[k]=document.getElementById("g_"+k).value.trim();});
+  if(!c.b)c.b="main";if(!c.p)c.p="data/bulk-density.json";
+  try{localStorage.setItem(CK,JSON.stringify(c));}catch(e){}
+  CFG=cfgLoad();SP.classList.remove("on");start();
+};
+async function start(){
+  localLoad();
+  if(!ready()){if(!R.length)R=[blank(),blank()];render();setSt("GitHub settings bharein",true);SP.classList.add("on");fillSet();return;}
+  setSt("GitHub se data aa raha hai...");
+  try{var rem=await pull();merge(rem);localSave();if(!R.length)R=[blank(),blank()];render();
+    setSt("GitHub se judaa \u2713");
+    if(R.some(function(r){return hasData(r)&&!rem.reports.some(function(x){return x.id===r.id&&(x.u||0)>=(r.u||0);});}))queue();
+  }catch(e){if(!R.length)R=[blank(),blank()];render();setSt("GitHub error: "+e.message,true);}
+}
+start();
+</script>
+</body>
+</html>

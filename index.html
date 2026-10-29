@@ -52,20 +52,11 @@ button.p{background:var(--ac);color:#fff;border-color:var(--ac)}
   <input id="q" class="sr" type="search" placeholder="Search: location / material / date">
   <button id="add">+ Report</button>
   <button id="hbtn">Purani Reports</button>
-  <button id="sync">Sync</button>
-  <button id="gear">GitHub</button>
+  <button id="bk">Backup</button>
+  <button id="rsb">Restore</button><input id="rs" type="file" accept=".json,application/json" hidden>
   <button id="pdf" class="p">PDF download</button>
 </div>
-<div class="note">Har A4 page par 2 reports. Har badlav 1-2 second me GitHub repo ki JSON file me apne aap save hota hai (<span id="cnt"></span>). PDF wahi reports leta hai jo screen par dikh rahi hain.</div>
-<div class="set" id="set">
-  <b>GitHub settings</b> (sirf is device ke browser me rehti hain)
-  <label>Owner / username<input id="g_o" placeholder="yogender"></label>
-  <label>Repo name<input id="g_r" placeholder="bulk-density"></label>
-  <label>Branch<input id="g_b" placeholder="main"></label>
-  <label>Data file path<input id="g_p" placeholder="data/bulk-density.json"></label>
-  <label>Token (Contents: Read and write)<input id="g_t" type="password" placeholder="github_pat_..."></label>
-  <button id="gsave" class="p">Save karke connect karein</button>
-</div>
+<div class="note">Har A4 page par 2 reports. Data aapke browser me apne aap save hota hai (<span id="cnt"></span>). PDF seedha text-wali (vector) banti hai, aadhi kati nahi aayegi. Phone/browser badalne par data nahi dikhega, isliye Backup le lete rahein.</div>
 <div class="set hist" id="hist">
   <b>Purani reports (saved data se PDF)</b>
   <input id="h_q" placeholder="Search: location / material / date">
@@ -75,75 +66,23 @@ button.p{background:var(--ac);color:#fff;border-color:var(--ac)}
   <div id="h_list" style="margin-top:8px"></div>
 </div>
 <div id="root"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
-var N=5,KEY="bd_local_v2",CK="bd_gh",TITLES=["Free Flow Test","Semi Compact","Compact"];
+var N=5,KEY="bd_local_v2",TITLES=["Free Flow Test","Semi Compact","Compact"];
 function today(){var d=new Date();return ("0"+d.getDate()).slice(-2)+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+d.getFullYear();}
 function nowT(){return new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"}).toUpperCase();}
 function blank(){var s=[];for(var c=0;c<3;c++){var a=[];for(var i=0;i<N;i++)a.push({i:"",w:""});s.push(a);}
   return {id:"r"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),t:Date.now(),u:0,loc:"",date:today(),time:nowT(),mat:"",ckg:"",cm3:"",sig:"",s:s};}
-var R=[],V=[],DEL=[],Q="",SHA=null,busy=false,again=false,timer=null;
+var R=[],V=[],Q="";
 function setSt(t,bad){var e=document.getElementById("st");e.textContent=t;e.style.color=bad?"#d33":"";}
 function hasData(r){return !!(r.loc||r.mat||r.ckg||r.cm3||r.sig||r.s.some(function(c){return c.some(function(x){return x.i||x.w;});}));}
-function localSave(){try{localStorage.setItem(KEY,JSON.stringify({R:R,DEL:DEL}));}catch(e){}}
-function localLoad(){try{var o=JSON.parse(localStorage.getItem(KEY)||"{}");R=o.R||[];DEL=o.DEL||[];}catch(e){R=[];DEL=[];}}
-/* ---- GitHub ---- */
-function cfgDefault(){var c={o:"",r:"",b:"main",p:"data/bulk-density.json",t:""};
-  var h=location.hostname;if(/\.github\.io$/.test(h)){c.o=h.split(".")[0];c.r=location.pathname.split("/")[1]||"";}return c;}
-function cfgLoad(){var c=cfgDefault();try{var s=JSON.parse(localStorage.getItem(CK)||"{}");for(var k in s)if(s[k])c[k]=s[k];}catch(e){}return c;}
-var CFG=cfgLoad();
-function ready(){return CFG.o&&CFG.r&&CFG.t;}
-function enc(s){var b=new TextEncoder().encode(s),x="";b.forEach(function(c){x+=String.fromCharCode(c);});return btoa(x);}
-function dec(b){var x=atob(b.replace(/\s/g,"")),a=new Uint8Array(x.length);for(var i=0;i<x.length;i++)a[i]=x.charCodeAt(i);return new TextDecoder().decode(a);}
-function url(get){return "https://api.github.com/repos/"+CFG.o+"/"+CFG.r+"/contents/"+CFG.p.split("/").map(encodeURIComponent).join("/")+(get?"?ref="+encodeURIComponent(CFG.b)+"&_="+Date.now():"");}
-function hdr(){return {"Authorization":"Bearer "+CFG.t,"Accept":"application/vnd.github+json"};}
-async function pull(){
-  var res=await fetch(url(true),{headers:hdr()});
-  if(res.status===404){SHA=null;return {reports:[],deleted:[]};}
-  if(res.status===401||res.status===403)throw new Error("Token galat ya permission nahi (Contents: Read and write chahiye)");
-  if(!res.ok)throw new Error("GitHub error "+res.status);
-  var j=await res.json();SHA=j.sha;
-  var txt=j.content?dec(j.content):"{}";
-  try{var d=JSON.parse(txt);return {reports:d.reports||[],deleted:d.deleted||[]};}catch(e){return {reports:[],deleted:[]};}
-}
-function merge(rem){
-  var changed=false;
-  rem.deleted.forEach(function(id){if(DEL.indexOf(id)<0)DEL.push(id);});
-  R=R.filter(function(r){return DEL.indexOf(r.id)<0;});
-  rem.reports.forEach(function(x){
-    if(DEL.indexOf(x.id)>-1)return;
-    var i=R.findIndex(function(r){return r.id===x.id;});
-    if(i<0){R.push(x);changed=true;}
-    else if((x.u||0)>(R[i].u||0)){R[i]=x;changed=true;}
-  });
+function save(){try{localStorage.setItem(KEY,JSON.stringify(R));setSt("Is device me saved \u2713 "+nowT());}catch(e){setSt("Save nahi hua, Backup le lein",true);}}
+function load(){
+  try{var o=JSON.parse(localStorage.getItem(KEY)||"[]");R=Array.isArray(o)?o:(o&&o.R)||[];}catch(e){R=[];}
+  if(!R.length){try{R=JSON.parse(localStorage.getItem("bulkdensity_v1")||"[]").filter(hasData);}catch(e){R=[];}}
+  R.forEach(function(r){if(!r.id)r.id=blank().id;if(!r.t)r.t=Date.now();});
   R.sort(function(a,b){return (a.t||0)-(b.t||0);});
-  return changed;
 }
-async function doPush(){
-  for(var a=0;a<3;a++){
-    var rem=await pull();
-    if(merge(rem)&&!(document.activeElement&&document.activeElement.classList.contains("in")))render();
-    var body={message:"Bulk density data update "+new Date().toISOString(),content:enc(JSON.stringify({v:1,reports:R.filter(hasData),deleted:DEL},null,1)),branch:CFG.b};
-    if(SHA)body.sha=SHA;
-    var res=await fetch(url(false),{method:"PUT",headers:hdr(),body:JSON.stringify(body)});
-    if(res.ok){var j=await res.json();SHA=j.content.sha;return;}
-    if(res.status===409||res.status===422)continue;
-    if(res.status===401||res.status===403)throw new Error("Token galat ya write permission nahi");
-    throw new Error("GitHub error "+res.status);
-  }
-  throw new Error("Conflict, dobara try hoga");
-}
-async function sync(){
-  if(!ready()){setSt("GitHub settings bharein",true);return;}
-  if(busy){again=true;return;}
-  busy=true;setSt("GitHub par save ho raha hai...");
-  try{do{again=false;await doPush();}while(again);localSave();setSt("GitHub par saved \u2713 "+new Date().toLocaleTimeString());}
-  catch(e){setSt("Save nahi hua: "+e.message,true);}
-  busy=false;
-}
-function queue(){localSave();if(!ready()){setSt("GitHub settings bharein",true);return;}setSt("Save hone wala hai...");clearTimeout(timer);timer=setTimeout(sync,1500);}
-/* ---- UI ---- */
 function get(o,p){return p.split(".").reduce(function(a,k){return a[k];},o);}
 function set(o,p,v){var k=p.split("."),l=k.pop();k.reduce(function(a,x){return a[x];},o)[l]=v;}
 function inp(p){return '<input class="in" data-p="'+p+'">';}
@@ -195,8 +134,8 @@ function compute(d){
   var t=an!=null?an/1000:null;
   return {avg:avg,net:net,an:an,t:t,den:(t!=null&&vol>0)?t/vol:null};
 }
-function calc(r,s){
-  s=s||document.querySelector('.sheet[data-r="'+r+'"]');if(!s)return;
+function calc(r){
+  var s=document.querySelector('.sheet[data-r="'+r+'"]');if(!s)return;
   var o=compute(R[r]);
   for(var c=0;c<3;c++){s.querySelector('[data-o="avg'+c+'"]').value=f(o.avg[c],3);s.querySelector('[data-o="net'+c+'"]').value=f(o.net[c],3);}
   s.querySelector('[data-o="anet"]').value=f(o.an,3);
@@ -211,51 +150,87 @@ document.addEventListener("input",function(e){
     d.date=today();d.time=nowT();
     s.querySelector('[data-p="date"]').value=d.date;s.querySelector('[data-p="time"]').value=d.time;
   }
-  set(d,el.dataset.p,el.value);d.u=Date.now();calc(r);queue();
+  set(d,el.dataset.p,el.value);d.u=Date.now();calc(r);save();
 });
 document.addEventListener("click",function(e){
   var d=e.target.dataset&&e.target.dataset.del;
   if(d!=null&&d!==""){
-    if(!confirm("Ye report GitHub se bhi hamesha ke liye hategi. Pakka?"))return;
-    var r=R.splice(+d,1)[0];DEL.push(r.id);render();queue();
+    if(!confirm("Ye report hamesha ke liye hategi. Pakka?"))return;
+    R.splice(+d,1);save();render();
   }
 });
 document.getElementById("q").addEventListener("input",function(){Q=this.value;render();});
-document.getElementById("add").onclick=function(){R.push(blank());Q="";document.getElementById("q").value="";localSave();render();window.scrollTo(0,document.body.scrollHeight);};
-document.getElementById("sync").onclick=function(){sync();};
+document.getElementById("add").onclick=function(){R.push(blank());Q="";document.getElementById("q").value="";save();render();window.scrollTo(0,document.body.scrollHeight);};
 function fit(){document.getElementById("root").style.zoom=Math.min(1,(window.innerWidth-16)/794);}
 window.addEventListener("resize",fit);
-async function makePdf(pages,name,btn){
-  var old=btn?btn.textContent:"";if(btn){btn.textContent="Ban raha hai...";btn.disabled=true;}
-  var root=document.getElementById("root");
-  try{
-    if(!pages.length)throw new Error("Koi report nahi hai");
-    root.style.zoom=1;document.body.classList.add("cap");
-    var pdf=new window.jspdf.jsPDF({unit:"mm",format:"a4"});
-    for(var i=0;i<pages.length;i++){
-      var cv=await html2canvas(pages[i],{scale:2,backgroundColor:"#ffffff"});
-      if(i)pdf.addPage();
-      pdf.addImage(cv.toDataURL("image/jpeg",0.95),"JPEG",0,0,210,297);
+
+/* ---- PDF (seedha vector PDF, screenshot nahi) ---- */
+var BAD=false;
+function lat(s){s=String(s==null?"":s);var o=s.replace(/[^\u0000-\u00ff]/g,"?");if(o!==s)BAD=true;return o;}
+function drawSheet(doc,d,x,y){
+  var W=190,H=134.5,o=compute(d),cw=W/3;
+  function T(s,cx,cy,w,size,bold,al){
+    s=lat(s);size=size||8;doc.setFont("helvetica",bold?"bold":"normal");doc.setFontSize(size);
+    while(s&&doc.getTextWidth(s)>w-2&&size>4.5){size-=0.5;doc.setFontSize(size);}
+    while(s.length>1&&doc.getTextWidth(s)>w-2)s=s.slice(0,-1);
+    doc.text(s,cx,cy,{align:al||"center",baseline:"middle"});
+  }
+  function L(a,b,c,e,w){doc.setLineWidth(w||0.2);doc.line(a,b,c,e);}
+  doc.setDrawColor(34,34,34);doc.setTextColor(17,17,17);
+  doc.setLineWidth(0.4);doc.rect(x,y,W,H);
+  doc.setFillColor(28,31,38);doc.rect(x,y,38,14,"F");
+  doc.setTextColor(255,255,255);T("SV",x+19,y+6,38,20,true);T("stockpilevolume.com",x+19,y+11.5,38,5.5);
+  doc.setTextColor(17,17,17);T("Bulk Density by DatesMetron LLP",x+38+(W-38)/2,y+7,W-38,10,true);
+  L(x+38,y,x+38,y+14,0.35);L(x,y+14,x+W,y+14,0.35);
+  var y1=y+14,w1=W*0.62,w2=W*0.21,w3=W*0.17;
+  T("Location",x+w1/2,y1+3.5,w1,6.5,true);T(d.loc,x+w1/2,y1+8,w1,8);
+  T("Date",x+w1+w2/2,y1+3.5,w2,6.5,true);T(d.date,x+w1+w2/2,y1+8,w2,8);
+  T("Time",x+w1+w2+w3/2,y1+3.5,w3,6.5,true);T(d.time,x+w1+w2+w3/2,y1+8,w3,8);
+  L(x+w1,y1,x+w1,y1+11,0.35);L(x+w1+w2,y1,x+w1+w2,y1+11,0.35);L(x,y1+11,x+W,y1+11,0.35);
+  var y2=y1+11,mw=W*0.3;
+  T("Material Name",x+mw/2,y2+4.5,mw,7,true);T(d.mat,x+mw+(W-mw)/2,y2+4.5,W-mw,8);
+  L(x+mw,y2,x+mw,y2+9,0.35);L(x,y2+9,x+W,y2+9,0.35);
+  var y3=y2+9;
+  for(var c=0;c<3;c++){
+    var x0=x+c*cw,hw=cw/2;
+    T(TITLES[c],x0+hw,y3+3.5,cw,8,true);L(x0,y3+7,x0+cw,y3+7,0.3);
+    T("Sample id",x0+hw/2,y3+10,hw,7,true);T("Weight(Kg)",x0+hw+hw/2,y3+10,hw,7,true);L(x0,y3+13,x0+cw,y3+13,0.3);
+    for(var i=0;i<N;i++){
+      var ry=y3+13+i*6.5,row=d.s[c][i];
+      T(row.i,x0+hw/2,ry+3.25,hw,8);T(row.w,x0+hw+hw/2,ry+3.25,hw,8);
+      L(x0,ry+6.5,x0+cw,ry+6.5,i===N-1?0.35:0.15);
     }
-    pdf.save(name);
-  }catch(err){alert("PDF nahi ban paaya: "+err.message);}
-  document.body.classList.remove("cap");fit();if(btn){btn.textContent=old;btn.disabled=false;}
+    var ya=y3+45.5;
+    T("Avg. Weight(Kg)",x0+hw/2,ya+3.25,hw,6.5,true);T(f(o.avg[c],3),x0+hw+hw/2,ya+3.25,hw,8,true);L(x0,ya+6.5,x0+cw,ya+6.5,0.15);
+    T("Net Weight(Kg)",x0+hw/2,ya+9.75,hw,6.5,true);T(f(o.net[c],3),x0+hw+hw/2,ya+9.75,hw,8,true);
+    L(x0+hw,y3+7,x0+hw,y3+58.5,0.15);
+    if(c>0)L(x0,y3,x0,y3+58.5,0.35);
+  }
+  var y4=y3+58.5;L(x,y4,x+W,y4,0.35);
+  var A=[["Avg. Net Weight(Kg)",f(o.an,3)],["Avg. Net Weight(Tonne)",f(o.t,4)],["Density(T/m3)",f(o.den,4)]];
+  var B=[["Weight of Container(Kg)",d.ckg],["Weight of Container(m3)",d.cm3],["Site Incharge Signature",d.sig]];
+  for(var k=0;k<3;k++){
+    var cx=x+k*cw+cw/2;
+    T(A[k][0],cx,y4+4,cw,7,true);L(x+k*cw,y4+8,x+k*cw+cw,y4+8,0.15);T(A[k][1],cx,y4+13,cw,9,true);
+    T(B[k][0],cx,y4+22,cw,7,true);L(x+k*cw,y4+26,x+k*cw+cw,y4+26,0.15);T(B[k][1],cx,y4+33,cw,9);
+    if(k>0)L(x+k*cw,y4,x+k*cw,y+H,0.35);
+  }
+  L(x,y4+18,x+W,y4+18,0.35);
 }
-document.getElementById("pdf").onclick=function(){makePdf(document.querySelectorAll("#root .page"),"Bulk-Density-Report-"+today()+".pdf",this);};
-async function pdfFor(idxs,name,btn){
-  var tmp=document.createElement("div");tmp.style.cssText="position:absolute;left:-10000px;top:0;width:794px";
-  var h="";
-  for(var p=0;p<idxs.length;p+=2)h+='<div class="pw"><div class="page">'+sheet(idxs[p])+(idxs[p+1]!=null?sheet(idxs[p+1]):'<div class="sheet" style="border:0"></div>')+'</div></div>';
-  tmp.innerHTML=h;document.body.appendChild(tmp);
-  tmp.querySelectorAll(".sheet[data-r]").forEach(function(s){
-    var r=+s.dataset.r;
-    s.querySelectorAll("[data-p]").forEach(function(el){el.value=get(R[r],el.dataset.p);});
-    calc(r,s);
-  });
-  await makePdf(tmp.querySelectorAll(".page"),name,btn);
-  tmp.remove();
+function pdfReports(idxs,name){
+  idxs=idxs.filter(function(i){return hasData(R[i]);});
+  if(!idxs.length){alert("PDF ke liye koi bhari hui report nahi hai");return;}
+  BAD=false;
+  try{
+    var doc=new window.jspdf.jsPDF({unit:"mm",format:"a4"});
+    idxs.forEach(function(i,k){if(k>0&&k%2===0)doc.addPage();drawSheet(doc,R[i],10,10+(k%2)*142.5);});
+    doc.save(name);
+    if(BAD)alert("Dhyan dein: Hindi/alag script ke akshar PDF me ? dikhenge. Naam English (Roman) me likhein.");
+  }catch(e){alert("PDF nahi ban paaya: "+e.message);}
 }
-/* purani reports */
+document.getElementById("pdf").onclick=function(){pdfReports(V.slice(),"Bulk-Density-Report-"+today()+".pdf");};
+
+/* ---- purani reports ---- */
 var HS={};
 function iso(d){var m=/^(\d{1,2})-(\d{1,2})-(\d{4})$/.exec(d||"");return m?m[3]+"-"+("0"+m[2]).slice(-2)+"-"+("0"+m[1]).slice(-2):"";}
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
@@ -270,8 +245,8 @@ function hlist(){
   return o.sort(function(a,b){return (R[b].t||0)-(R[a].t||0);});
 }
 function hrender(){
-  var L=hlist(),h="";
-  L.forEach(function(i){
+  var h="";
+  hlist().forEach(function(i){
     var r=R[i],dn=compute(r).den;
     h+='<div class="hi"><input type="checkbox" data-hs="'+i+'"'+(HS[r.id]?" checked":"")+'><span style="flex:1">'+esc(r.date)+" "+esc(r.time)+" \u00b7 "+esc(r.loc||"-")+" \u00b7 "+esc(r.mat||"-")+(dn!=null?" \u00b7 D="+f(dn,3):"")+'</span><button data-hp="'+i+'">PDF</button></div>';
   });
@@ -281,8 +256,8 @@ document.getElementById("hbtn").onclick=function(){var e=document.getElementById
 ["h_q","h_f","h_t"].forEach(function(id){document.getElementById(id).addEventListener("input",hrender);});
 document.getElementById("h_list").addEventListener("click",function(e){
   var t=e.target;
-  if(t.dataset.hs!=null&&t.dataset.hs!==""){HS[R[+t.dataset.hs].id]=t.checked;}
-  if(t.dataset.hp!=null&&t.dataset.hp!==""){var r=R[+t.dataset.hp];pdfFor([+t.dataset.hp],"Bulk-Density-"+(r.loc||"report").replace(/[^\w-]+/g,"_")+"-"+r.date+".pdf",t);}
+  if(t.dataset.hs!=null&&t.dataset.hs!=="")HS[R[+t.dataset.hs].id]=t.checked;
+  if(t.dataset.hp!=null&&t.dataset.hp!==""){var r=R[+t.dataset.hp];pdfReports([+t.dataset.hp],"Bulk-Density-"+(r.loc||"report").replace(/[^\w-]+/g,"_")+"-"+r.date+".pdf");}
 });
 document.getElementById("h_all").onclick=function(){
   var L=hlist(),all=L.every(function(i){return HS[R[i].id];});
@@ -291,28 +266,32 @@ document.getElementById("h_all").onclick=function(){
 document.getElementById("h_pdf").onclick=function(){
   var L=hlist().filter(function(i){return HS[R[i].id];}).sort(function(a,b){return (R[a].t||0)-(R[b].t||0);});
   if(!L.length){alert("Pehle reports select karein");return;}
-  pdfFor(L,"Bulk-Density-Purani-Reports-"+today()+".pdf",this);
+  pdfReports(L,"Bulk-Density-Purani-Reports-"+today()+".pdf");
 };
-/* settings */
-var SP=document.getElementById("set");
-function fillSet(){["o","r","b","p","t"].forEach(function(k){document.getElementById("g_"+k).value=CFG[k]||"";});}
-document.getElementById("gear").onclick=function(){fillSet();SP.classList.toggle("on");};
-document.getElementById("gsave").onclick=function(){
-  var c={};["o","r","b","p","t"].forEach(function(k){c[k]=document.getElementById("g_"+k).value.trim();});
-  if(!c.b)c.b="main";if(!c.p)c.p="data/bulk-density.json";
-  try{localStorage.setItem(CK,JSON.stringify(c));}catch(e){}
-  CFG=cfgLoad();SP.classList.remove("on");start();
+
+/* ---- backup / restore ---- */
+document.getElementById("bk").onclick=function(){
+  var b=new Blob([JSON.stringify({v:1,reports:R.filter(hasData)},null,1)],{type:"application/json"});
+  var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="bulk-density-backup-"+today()+".json";
+  document.body.appendChild(a);a.click();a.remove();
 };
-async function start(){
-  localLoad();
-  if(!ready()){if(!R.length)R=[blank(),blank()];render();setSt("GitHub settings bharein",true);SP.classList.add("on");fillSet();return;}
-  setSt("GitHub se data aa raha hai...");
-  try{var rem=await pull();merge(rem);localSave();if(!R.length)R=[blank(),blank()];render();
-    setSt("GitHub se judaa \u2713");
-    if(R.some(function(r){return hasData(r)&&!rem.reports.some(function(x){return x.id===r.id&&(x.u||0)>=(r.u||0);});}))queue();
-  }catch(e){if(!R.length)R=[blank(),blank()];render();setSt("GitHub error: "+e.message,true);}
-}
-start();
+document.getElementById("rsb").onclick=function(){document.getElementById("rs").click();};
+document.getElementById("rs").onchange=function(){
+  var fl=this.files[0];if(!fl)return;var rd=new FileReader();
+  rd.onload=function(){
+    try{
+      var o=JSON.parse(rd.result),arr=Array.isArray(o)?o:(o.reports||o.R||[]),n=0;
+      arr.forEach(function(x){
+        if(!x||!x.s)return;if(!x.id)x.id=blank().id;if(!x.t)x.t=Date.now();
+        var i=R.findIndex(function(r){return r.id===x.id;});
+        if(i<0){R.push(x);n++;}else if((x.u||0)>(R[i].u||0)){R[i]=x;n++;}
+      });
+      R.sort(function(a,b){return (a.t||0)-(b.t||0);});save();render();alert(n+" report restore hui");
+    }catch(e){alert("Backup file padhi nahi gayi: "+e.message);}
+  };
+  rd.readAsText(fl);this.value="";
+};
+load();if(!R.length)R=[blank(),blank()];render();setSt("Is device me saved \u2713");
 </script>
 </body>
 </html>
